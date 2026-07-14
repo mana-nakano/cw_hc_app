@@ -1,0 +1,17 @@
+# 1. Node.jsの環境を借りる
+FROM node:20
+
+# 2. 作業するフォルダを決める
+WORKDIR /app
+
+# 3. 部品リストをコピーしてインストール
+COPY package*.json ./
+RUN npm install
+
+# 4. コードを全部コピーして、本番用に組み立てる
+COPY . .
+RUN npm run build
+
+# 5. 8080番ポートを空けて、アプリを起動
+EXPOSE 8080
+CMD ["npm", "run", "start"]

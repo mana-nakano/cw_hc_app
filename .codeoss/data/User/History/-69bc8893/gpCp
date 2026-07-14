@@ -1,0 +1,21 @@
+# 1. ビルド環境
+FROM node:18 AS builder
+WORKDIR /app
+
+# frontendの依存関係だけを先にインストール
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm install
+
+# 残りのファイルをコピーしてビルド
+COPY . .
+RUN cd frontend && npm run build
+
+# 2. 実行環境（ここは変更なし）
+FROM node:18-slim
+WORKDIR /app
+COPY --from=builder /app/frontend/dist ./dist
+COPY --from=builder /app/backend ./backend
+RUN cd backend && npm install --production
+
+EXPOSE 8080
+CMD ["node", "backend/index.js"]

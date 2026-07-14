@@ -1,0 +1,123 @@
+/* ===================================================
+   どんな画面でも「重ならず」「1画面に収める」決定版設定
+   =================================================== */
+
+/* 1. 全体枠の固定とスクロールの完全禁止 */
+html, body, #app, main {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;        /* スマホのメニューバー対策 */
+  overflow: hidden;      /* 縦横のスクロールを完全に禁止 */
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+/* 2. メインエリア（要素が重ならないように fluid に縮める） */
+#center {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  place-content: center;
+  place-items: center;
+  flex-grow: 1;
+  flex-shrink: 1;        /* 画面が狭いときは要素を縮める */
+  min-height: 0;         /* 縮小を許可する魔法の1行 */
+  padding: 16px;
+}
+
+/* 3. 【重要】ロゴエリア（画面の高さに合わせて自動でミニサイズ化） */
+.hero {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 1;        /* ロゴ自体も縮小を許可 */
+  height: 170px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 📱 スマホや、縦幅の狭い画面用のレスポンシブ調整 */
+@media (max-width: 1024px), (max-height: 750px) {
+  #center {
+    gap: 8px !important;
+    padding: 12px !important;
+  }
+
+  /* ロゴ全体をきゅっと小さくしてスペースを空ける */
+  .hero {
+    height: 100px !important;
+  }
+  .hero .base {
+    width: 90px !important; /* 土台を小さく */
+  }
+  .hero .framework {
+    top: 18px !important;
+    height: 15px !important;
+  }
+  .hero .vite {
+    top: 55px !important;
+    height: 14px !important;
+  }
+
+  /* タイトル文字なども1画面に収まるよう自動縮小 */
+  h1 {
+    font-size: 1.6rem !important;
+    margin: 4px 0 !important;
+  }
+  .counter {
+    margin-bottom: 8px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* 4. 下側のボタンエリア（縦に伸びすぎないよう余白を極限までカット） */
+#next-steps {
+  display: flex;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  flex-shrink: 0;        /* ここは潰れすぎないように保持 */
+
+  & > div {
+    flex: 1 1 0;
+    padding: 16px 24px;  /* 上下の余白を狭く */
+  }
+
+  .icon {
+    margin-bottom: 8px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* 📱 スマホ縦画面でのボタンエリアの最適化 */
+@media (max-width: 1024px) {
+  #next-steps {
+    flex-direction: column;
+    text-align: center;
+  }
+  #next-steps > div {
+    padding: 8px 16px !important; /* スマホ時はさらに薄く */
+  }
+  #next-steps ul {
+    margin-top: 8px !important;
+    justify-content: center;
+  }
+}
+
+/* 5. 縦長の原因になっていた無駄な隙間を完全に削除 */
+#spacer {
+  height: 0px !important; /* 完全にゼロにしてスペースを節約 */
+  border: none !important;
+}
+
+.ticks {
+  display: none !important; /* 1画面に収めるため飾り線を非表示に */
+}

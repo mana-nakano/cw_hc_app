@@ -1,0 +1,26 @@
+# 1. ビルド環境
+FROM node:18 AS builder
+WORKDIR /app
+
+# 全ファイルをコピー
+COPY . .
+
+# フロントエンドのビルド（frontendフォルダの中で実行）
+RUN cd frontend && npm install && npm run build
+
+# バックエンドの準備（backendフォルダの中で実行）
+RUN cd backend && npm install
+
+# 2. 実行環境
+FROM node:18-slim
+WORKDIR /app
+
+# frontend/dist（完成品）と backend フォルダをコピー
+COPY --from=builder /app/frontend/dist ./dist
+COPY --from=builder /app/backend ./backend
+
+# ポート設定
+EXPOSE 8080
+
+# サーバー起動
+CMD ["node", "backend/index.js"]

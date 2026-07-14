@@ -1,0 +1,31 @@
+# 1. ビルド環境（Node.js）
+FROM node:18 AS builder
+WORKDIR /app
+
+# backendの依存関係をインストール
+COPY backend/package*.json ./backend/
+RUN cd backend && npm install
+
+# frontendの依存関係をインストールしてビルド
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# 2. 実行環境
+FROM node:18-slim
+WORKDIR /app
+
+# 実行に必要なファイルだけをコピー
+COPY --from=builder /app/backend ./backend
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/backend/package*.json ./backend/
+
+# backendのライブラリをインストール
+RUN cd backend && npm install --production
+
+# ポート8080で待機（Cloud Runのデフォルト）
+EXPOSE 8080
+
+# サーバーを起動
+CMD ["node", "backend/index.js"]
