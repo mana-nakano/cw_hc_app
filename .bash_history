@@ -47,3 +47,30 @@ npm run build
 cd ..
 gcloud run deploy
 git init
+git add .
+git commit -m "Save stable code"
+git config --global user.email "your-email@example.com"
+git config --global user.name "Your Name"
+git config --global user.email "mana-nakano@morien.co.jp"
+git config --global user.name "中野"
+git config --global user.emai
+git config --global user.email "mana-nakano@morien.co.jp"
+git config --global user.name "中野"
+git commit -m "Save stable code"
+git remote add origin https://github.com/mana-nakano/cw_hc_app.git
+git branch -M main
+git push -u origin main
+git remote add origin https://github.com/mana-nakano/cw_hc_app.git
+git branch -M main
+git push -u origin main
+ls
+cd MANA_NAKANO/backend
+cd backend
+npm install @google-cloud/firestore
+cd ..
+gcloud run deploy call-app --source . --region asia-northeast1
+cd frontend
+npm run build
+cd ..
+gcloud run deploy call-app --source . --region asia-northeast1
+git status
