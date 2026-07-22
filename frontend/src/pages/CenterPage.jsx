@@ -8,6 +8,10 @@ const CenterPage = () => {
     const pcRef = useRef();
     const currentRoomRef = useRef(null);
 
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const currentLogIdRef = useRef(null); // 通話ごとの一意のログID
+
     const [waitingRooms, setWaitingRooms] = useState([]);
     const [currentRoom, setCurrentRoom] = useState(null);
     const [status, setStatus] = useState('待機中');
@@ -45,7 +49,77 @@ const CenterPage = () => {
         }
     };
 
+    // ★修正：自分（スタッフ）と相手（店舗）の音声をミックスして録音する関数
+    const startRecording = (remoteStream) => {
+        currentLogIdRef.current = Date.now(); 
+        audioChunksRef.current = []; 
+
+        try {
+            // 自分のマイクのストリームを取得
+            const localStream = localVideoRef.current?.srcObject;
+            if (!localStream) {
+                console.error("自分の音声ストリームが見つからないため、録音を開始できません。");
+                return;
+            }
+
+            // ブラウザの音響ミキサー（Web Audio API）を起動
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const audioCtx = new AudioContext();
+            
+            // 自分と相手の音声をソースとして登録
+            const localSource = audioCtx.createMediaStreamSource(localStream);
+            const remoteSource = audioCtx.createMediaStreamSource(remoteStream);
+            
+            // 音声を合流させるための終着点（ディスティネーション）を作成
+            const destination = audioCtx.createMediaStreamDestination();
+
+            // 2つの音線をミキサーに接続してガッチャンコする
+            localSource.connect(destination);
+            remoteSource.connect(destination);
+
+            // ミックスされた音声ストリームを使ってレコーダーを初期化
+            const mediaRecorder = new MediaRecorder(destination.stream, { mimeType: 'audio/webm' });
+            mediaRecorderRef.current = mediaRecorder;
+
+            mediaRecorder.ondataavailable = (event) => { //[cite: 2]
+                if (event.data && event.data.size > 0) { //[cite: 2]
+                    audioChunksRef.current.push(event.data); //[cite: 2]
+                } //[cite: 2]
+            }; //[cite: 2]
+
+            mediaRecorder.onstop = async () => { //[cite: 2]
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); //[cite: 2]
+                const arrayBuffer = await audioBlob.arrayBuffer(); //[cite: 2]
+                
+                if (socketRef.current && currentLogIdRef.current) { //[cite: 2]
+                    socketRef.current.emit('upload-audio', { //[cite: 2]
+                        logId: currentLogIdRef.current, //[cite: 2]
+                        audioBuffer: arrayBuffer //[cite: 2]
+                    }); //[cite: 2]
+                } //[cite: 2]
+
+                // 通話終了後、ミキサーをお片付け（メモリ解放）
+                audioCtx.close();
+            };
+
+            mediaRecorder.start(); 
+            console.log("スタッフと店舗の音声をミックスして録音を開始しました");
+        } catch (err) {
+            console.error("録音の開始に失敗しました:", err); 
+        }
+    };
+
+
+    // ★追加：録音を停止する関数
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+            console.log("録音を停止しました");
+        }
+    };
+
     const endCall = () => {
+        stopRecording(); // ★追加：通話終了時に録音を止める
         if (pcRef.current) {
             pcRef.current.close();
             pcRef.current = null;
@@ -70,6 +144,7 @@ const CenterPage = () => {
         // 1. ログの保存（Refから最新の情報を取得して送信）
         if (socketRef.current && currentRoomRef.current) {
             socketRef.current.emit('save-call-log', {
+                id: currentLogIdRef.current || Date.now(),
                 storeId: currentRoomRef.current,
                 staffName: staffNameRef.current, // ★Refから最新の名前を取得
                 memo: memoTextRef.current        // ★Refから最新のメモを取得
@@ -89,6 +164,7 @@ const CenterPage = () => {
     const handleEndCallWithLog = () => {
         if (socketRef.current && currentRoom) {
             socketRef.current.emit('save-call-log', {
+                id: currentLogIdRef.current || Date.now(), // ★追加
                 storeId: currentRoom,
                 // ★修正：Ref から名前を取得
                 staffName: staffNameRef.current,
@@ -141,9 +217,11 @@ const CenterPage = () => {
 
         // CenterPage.jsx の 79行目付近の useEffect 内
         socketRef.current.on('call-ended', () => {
+            stopRecording(); // ★追加：相手が切ったときも録音を止める
             console.log("お客様側で通話が終了されました");
             if (currentRoomRef.current) {
                 socketRef.current.emit('save-call-log', {
+                    id: currentLogIdRef.current || Date.now(), // ★追加
                     storeId: currentRoomRef.current,
                     // ★修正：変数ではなく Ref から名前を取得する
                     staffName: staffNameRef.current,
@@ -205,6 +283,8 @@ const CenterPage = () => {
             pcRef.current.ontrack = (event) => {
                 remoteVideoRef.current.srcObject = event.streams[0];
                 setStatus(`${roomId}店 と通話中！`);
+                //録音開始
+                startRecording(event.streams[0]);
             };
             pcRef.current.onicecandidate = (event) => {
                 if (event.candidate) {
@@ -408,6 +488,14 @@ const CenterPage = () => {
                                     <div className="bg-slate-900/50 p-5 rounded-2xl text-slate-300 text-sm whitespace-pre-wrap leading-relaxed border border-slate-700/50 italic">
                                         {log.memo || "（メモなし）"}
                                     </div>
+                                    
+                                    {/* ★追加：録音データが存在すれば再生プレイヤーを表示する */}
+                                    {log.audioUrl && (
+                                    <div className="mt-4 flex items-center gap-3 bg-slate-900/30 p-3 rounded-xl border border-slate-700/30">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">録音データ:</span>
+                                    <audio src={log.audioUrl} controls className="h-8 flex-1 max-w-full outline-none" />
+                                    </div>
+                                    )}
                                 </div>
                             ))}
                             {history.length === 0 && (

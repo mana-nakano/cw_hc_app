@@ -13,6 +13,7 @@
   "type": "commonjs",
   "dependencies": {
     "@google-cloud/firestore": "^8.6.0",
+    "@google-cloud/storage": "^7.21.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "socket.io": "^4.8.1"

@@ -74,3 +74,20 @@ npm run build
 cd ..
 gcloud run deploy call-app --source . --region asia-northeast1
 git status
+git add .
+git commit -m "feat: Firestoreの導入、およびスタッフ自動再ログイン機能の追加"
+git push
+cd ~/backend
+npm install @google-cloud/storage
+cd
+gcloud run deploy call-app --source . --region asia-northeast1
+cd ~/frontend
+npm run build
+cd ..
+gcloud run deploy call-app --source . --region asia-northeast1
+cd ~/frontend
+npm run build
+cd ..
+gcloud run deploy call-app --source . --region asia-northeast1
+cd ~
+git status

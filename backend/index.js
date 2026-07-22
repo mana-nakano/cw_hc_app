@@ -7,6 +7,11 @@ const path = require('path');
 const { Firestore } = require('@google-cloud/firestore');
 const db = new Firestore({ databaseId: 'hclog' }); // ★ databaseId を指定
 
+//★GCSの導入
+const { Storage } = require('@google-cloud/storage');
+const storage = new Storage();
+const bucketName = 'cw-hc-app-audio-logs'; 
+
 const app = express();
 
 // ビルドされたフロントエンドのファイルを公開する設定
@@ -77,10 +82,9 @@ io.on('connection', (socket) => {
     // ★変更：通話メモ（ログ）を Firestore に保存する
     socket.on('save-call-log', async (logData) => {
         const newLog = {
-         id: Date.now(),
-         // オプションに { timeZone: 'Asia/Tokyo' } を追加します
-         timestamp: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }), 
-         ...logData
+        id: logData.id || Date.now(), // ★フロントから届いたIDを優先する
+        timestamp: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }), //
+        ...logData //
         };
 
         try {
@@ -99,6 +103,37 @@ io.on('connection', (socket) => {
             io.emit('history-data', history);
         } catch (err) {
             console.error("Firestoreへの保存に失敗:", err);
+        }
+    });
+
+    // ★追加：フロントエンドから送られてきた録音データをCloud Storageに保存する
+    socket.on('upload-audio', async ({ logId, audioBuffer }) => {
+        try {
+            const bucket = storage.bucket(bucketName);
+            const fileName = `audio-${logId}.webm`;
+            const file = bucket.file(fileName);
+
+            // 1. 音声ファイルをCloud Storage（倉庫）に保存
+            await file.save(audioBuffer, {
+                contentType: 'audio/webm',
+                resumable: false,
+            });
+
+            // 2. スタッフ画面から直接再生できるようにファイルを一般公開
+            await file.makePublic();
+            const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
+
+            // 3. Firestoreの対応する通話履歴を探して、音声のURLを追記する
+            const snapshot = await db.collection('callHistory').where('id', '==', logId).get();
+            if (!snapshot.empty) {
+                const docId = snapshot.docs[0].id;
+                await db.collection('callHistory').doc(docId).update({ audioUrl: publicUrl });
+                console.log(`音声データの保存とURLの紐付けに成功しました: ${publicUrl}`);
+            } else {
+                console.log(`音声に対応する通話履歴（ID: ${logId}）が見つかりませんでした。`);
+            }
+        } catch (err) {
+            console.error('音声ファイルの保存中にエラーが発生しました:', err);
         }
     });
 
